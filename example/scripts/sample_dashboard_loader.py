@@ -24,6 +24,7 @@ from databuilder.transformer.base_transformer import NoopTransformer
 
 from databuilder.extractor.base_extractor import Extractor
 from databuilder.models.dashboard.dashboard_metadata import DashboardMetadata
+from databuilder.models.dashboard.dashboard_last_modified import DashboardLastModifiedTimestamp
 from databuilder.publisher.elasticsearch_constants import DASHBOARD_ELASTICSEARCH_INDEX_MAPPING
 
 es_host = os.getenv('CREDENTIALS_ELASTICSEARCH_PROXY_HOST', 'localhost')
@@ -46,12 +47,12 @@ neo4j_password = 'test'
 
 class TestDashboardExtractor(Extractor):
     def init(self, _conf):
-        dashes = [
+        models = [
             DashboardMetadata(
                 dashboard_group="Test Dashes",  # type: str
                 dashboard_name=f"Test Dashboard {i}",  # type: str
                 description="This is a test dashboard.",  # type: Union[str, None]
-                tags=['test'],  # type: List
+                tags=[],  # type: List
                 cluster='prod',  # type: str
                 product='testdash',  # type: Optional[str]
                 dashboard_group_id='testdash',  # type: Optional[str]
@@ -62,7 +63,16 @@ class TestDashboardExtractor(Extractor):
                 dashboard_url=f"https://example.com/?dashboard={i}",  # type: Optional[str]
             ) for i in range(5)
         ]
-        self._iter = iter(dashes)
+        models.extend([
+            DashboardLastModifiedTimestamp(
+                dashboard_group_id='testdash',
+                dashboard_id=i,
+                last_modified_timestamp=1590590397+i*60*60,
+                product='testdash',
+                cluster='prod'
+            ) for i in range(5)
+        ])
+        self._iter = iter(models)
 
     def extract(self):
         try:
@@ -120,7 +130,7 @@ def run_jobs():
         'publisher.elasticsearch.file_path': extracted_search_data_path,
         'publisher.elasticsearch.mode': 'r',
         'publisher.elasticsearch.client': elasticsearch_client,
-        'publisher.elasticsearch.new_index': 'dashboard',
+        'publisher.elasticsearch.new_index': uuid.uuid4(),
         'publisher.elasticsearch.doc_type': 'dashboard',
         'publisher.elasticsearch.alias': 'dashboard_search_index',
     })
